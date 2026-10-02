@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kazuyoshi AI</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0f1115;color:#f5f7fb}
+button,input{font:inherit}button{cursor:pointer;border:0}.app{max-width:1100px;margin:auto;min-height:100vh}
+header{height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid #292d35;background:#151820;position:sticky;top:0;z-index:5}
+.logo{font-weight:800;font-size:20px}.nav button{background:transparent;color:#aeb5c2;padding:10px 12px}.nav button.active{color:#fff}
+main{padding:20px}.screen{display:none}.screen.active{display:block}
+.card{background:#171a21;border:1px solid #292d35;border-radius:18px;padding:18px;margin-bottom:16px}
+h1{font-size:28px;margin:0 0 8px}h2{margin:0 0 12px}.muted{color:#9da5b3}
+.chat{height:calc(100vh - 170px);min-height:480px;display:flex;flex-direction:column}.messages{flex:1;overflow:auto;padding:8px}
+.msg{max-width:82%;padding:12px 14px;border-radius:16px;margin:9px 0;white-space:pre-wrap}.ai{background:#252a34}.user{background:#3157d6;margin-left:auto}
+.chatbar{display:flex;gap:8px;padding-top:10px}.chatbar input{flex:1;background:#20242d;border:1px solid #343a46;color:white;border-radius:14px;padding:13px}.primary{background:#4169e1;color:#fff;border-radius:12px;padding:12px 16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.gamecard{background:#171a21;border:1px solid #292d35;border-radius:18px;padding:18px}.gamecard .emoji{font-size:38px}.gamecard button{width:100%;margin-top:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.select{background:#20242d;color:white;border:1px solid #343a46;border-radius:10px;padding:10px}
+#gameArea{text-align:center}.board{margin:15px auto;display:grid;gap:3px;justify-content:center}.cell{width:44px;height:44px;background:#25744a;border:1px solid #185b39;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:30px}
+.othello .cell{width:42px;height:42px}.disc{width:31px;height:31px;border-radius:50%;background:#111}.disc.w{background:#eee}
+.memory{grid-template-columns:repeat(4,62px)}.memory .cell{width:62px;height:70px;background:#303746;font-size:26px}.memory .open{background:#59657a}
+.timing{height:45px;background:#292f3b;border-radius:20px;position:relative;margin:25px auto;max-width:600px;overflow:hidden}.target{position:absolute;left:47%;width:6%;height:100%;background:#4ade80}.needle{position:absolute;width:5px;height:100%;background:#fff;left:0}
+.big{font-size:48px;font-weight:800;margin:20px}.result{font-size:20px;margin:15px}
+.chatbox{background:#10131a;border-radius:14px;padding:12px;text-align:left;max-height:300px;overflow:auto;margin:12px auto;max-width:700px}.line{margin:7px 0}
+.chess{grid-template-columns:repeat(8,42px)}.chess .cell{width:42px;height:42px;background:#d7b98c;color:#111;font-size:27px}.chess .cell:nth-child(16n+1),.chess .cell:nth-child(16n+3),.chess .cell:nth-child(16n+5),.chess .cell:nth-child(16n+7),.chess .cell:nth-child(16n+10),.chess .cell:nth-child(16n+12),.chess .cell:nth-child(16n+14),.chess .cell:nth-child(16n+16){background:#8b6b4a;color:#fff}
+.small{font-size:13px;color:#9da5b3}
+@media(max-width:600px){main{padding:12px}.nav button{padding:8px 6px;font-size:13px}.cell{width:38px;height:38px}.othello .cell{width:37px;height:37px}.disc{width:28px;height:28px}.chess{grid-template-columns:repeat(8,38px)}.chess .cell{width:38px;height:38px}.memory{grid-template-columns:repeat(4,54px)}.memory .cell{width:54px;height:62px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div class="logo">🤖 Kazuyoshi AI</div><div class="nav"><button id="chatNav" class="active">チャット</button><button id="gamesNav">ゲーム</button><button id="statsNav">戦績</button></div></header>
+<main>
+<section id="chatScreen" class="screen active">
+<div class="card chat"><h1>AIチャット</h1><div class="small">タメ口・ちょい煽り系AI</div><div id="messages" class="messages"></div>
+<div class="chatbar"><input id="chatInput" placeholder="メッセージを入力…"><button class="primary" id="sendBtn">送信</button></div></div>
+</section>
+<section id="gamesScreen" class="screen">
+<h1>🎮 ゲーム</h1><p class="muted">AIと勝負しよう。</p><div class="grid" id="gameList"></div>
+</section>
+<section id="statsScreen" class="screen"><h1>🏆 戦績</h1><div class="card" id="stats"></div></section>
+<section id="playScreen" class="screen"><button class="primary" onclick="show('gamesScreen')">← ゲーム一覧</button><div id="gameArea" class="card"></div></section>
+</main>
+</div>
+<script>
+const INSTAGRAM="https://www.instagram.com/hello.mr.poxe?stkn=MWxqZmNjMGJsbNicw==";
+const stats=JSON.parse(localStorage.getItem("aigh_stats")||"{}");
+const games=[
+["othello","⚫","オセロ","AI Lv.1〜10で対戦"],
+["memory","🃏","神経衰弱","AIと記憶力勝負"],
+["gomoku","⚪","五目並べ","AI Lv.1〜10"],
+["timing","🎯","タイミングゲーム","5ラウンドでAIとスコア勝負"],
+["werewolf","🐺","人狼","AIたちとの心理戦"],
+["battle","🚢","海戦ゲーム","AIと艦隊戦"],
+["chess","♟️","チェス","AI Lv.1〜10"]
+];
+const $=id=>document.getElementById(id);
+function show(id){document.querySelectorAll(".screen").forEach(x=>x.classList.remove("active"));$(id).classList.add("active");$("chatNav").classList.toggle("active",id==="chatScreen");$("gamesNav").classList.toggle("active",id==="gamesScreen");$("statsNav").classList.toggle("active",id==="statsScreen");if(id==="statsScreen")renderStats()}
+$("chatNav").onclick=()=>show("chatScreen");$("gamesNav").onclick=()=>show("gamesScreen");$("statsNav").onclick=()=>show("statsScreen");
+$("gameList").innerHTML=games.map(g=>`<div class="gamecard"><div class="emoji">${g[1]}</div><h2>${g[2]}</h2><p class="muted">${g[3]}</p><button class="primary" onclick="startGame('${g[0]}')">プレイ</button></div>`).join("");
+function addMsg(who,text){let d=document.createElement("div");d.className="msg "+who;d.textContent=text;$("messages").appendChild(d);$("messages").scrollTop=99999}
+addMsg("ai","よっ、来たな😏\n「ゲーム」って打ったらゲーム一覧に行けるぞ。");
+function chat(){
+ const raw=$("chatInput").value.trim();if(!raw)return;addMsg("user",raw);$("chatInput").value="";
+ if(raw==="ゲーム"){show("gamesScreen");return}
+ if(raw==="太鼓の達人"){location.href=INSTAGRAM;return}
+ if(raw==="寺澤知良"){addMsg("ai","【架空キャラクター】\n寺澤知良\n本名　牛\nランク　A5ランク\n部活　ドンドン太鼓部（弓道部）\n最近は体調不良で学校行けてないよ〜❤️");return}
+ const replies=["へぇ〜、そうなんだ。で？😏","それ自信満々に言うの面白いな笑","まあ、今回はそういうことにしとこ😂","なるほどね。……ほんとに？","お、今日はちゃんと喋ってるじゃん。","それで俺に勝てると思ってる？笑"];
+ addMsg("ai",replies[Math.floor(Math.random()*replies.length)]);
+}
+$("sendBtn").onclick=chat;$("chatInput").onkeydown=e=>{if(e.key==="Enter")chat()};
+
+function record(name,result,score=0){if(!stats[name])stats[name]={win:0,loss:0,draw:0,best:0};if(result==="win")stats[name].win++;if(result==="loss")stats[name].loss++;if(result==="draw")stats[name].draw++;if(score>stats[name].best)stats[name].best=score;localStorage.setItem("aigh_stats",JSON.stringify(stats));}
+function taunt(result,game){let a=result==="win"?["お、勝ったじゃん。よかったね😂","今回は勝たせてあげた……ってことにしとく？","その顔、勝てたのが相当うれしいんだな笑"]:result==="loss"?["……もう終わり？笑","ごめん、ちょっと本気出しすぎた😂","それで勝てると思ってたの面白いな。"]:["引き分けか。逃げ切ったな😂","まあ今回は互角ってことにしといてあげる。"];return a[Math.floor(Math.random()*a.length)]}
+function finish(name,result,extra=""){record(name,result);$("gameArea").innerHTML+=`<div class="result">${extra}<br><b>${result==="win"?"🏆 勝ち":result==="loss"?"💀 負け":"🤝 引き分け"}</b><br>🤖 ${taunt(result,name)}</div><button class="primary" onclick="startGame('${name}')">もう一回</button>`}
+
+// OTHELLO
+let ob,oturn,olvl=5;
+function startOthello(){show("playScreen");$("gameArea").innerHTML=`<h1>⚫ オセロ</h1><div class="row" style="justify-content:center"><span>AIレベル</span><select class="select" id="olvl">${Array.from({length:10},(_,i)=>`<option>${i+1}</option>`).join("")}</select></div><p id="oinfo"></p><div id="oboard" class="board othello"></div>`;$("olvl").onchange=e=>{olvl=+e.target.value;newOthello()};newOthello()}
+function newOthello(){ob=Array.from({length:8},()=>Array(8).fill(0));ob[3][3]=2;ob[3][4]=1;ob[4][3]=1;ob[4][4]=2;oturn=1;renderOthello()}
+function validO(r,c,p){if(r<0||r>7||c<0||c>7||ob[r][c])return[];let q=p===1?2:1,dirs=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]],out=[];for(let[d,e]of dirs){let x=r+d,y=c+e,a=[];while(x>=0&&x<8&&y>=0&&y<8&&ob[x][y]===q){a.push([x,y]);x+=d;y+=e}if(a.length&&x>=0&&x<8&&y>=0&&y<8&&ob[x][y]===p)out.push(...a)}return out}
+function movesO(p){let m=[];for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(validO(r,c,p).length)m.push([r,c]);return m}
+function putO(r,c,p){let f=validO(r,c,p);if(!f.length)return false;ob[r][c]=p;f.forEach(x=>ob[x[0]][x[1]]=p);return true}
+function renderOthello(){let b=$("oboard");b.innerHTML="";for(let r=0;r<8;r++)for(let c=0;c<8;c++){let d=document.createElement("div");d.className="cell";if(ob[r][c])d.innerHTML=`<div class="disc ${ob[r][c]===2?"w":""}"></div>`;else if(oturn===1&&validO(r,c,1).length)d.innerHTML="·";d.onclick=()=>playerO(r,c);b.appendChild(d)}$("oinfo").textContent=`あなた：${ob.flat().filter(x=>x===1).length}　AI：${ob.flat().filter(x=>x===2).length}　${oturn===1?"あなたの番":"AI思考中"}`}
+function playerO(r,c){if(oturn!==1||!putO(r,c,1))return;oturn=2;renderOthello();setTimeout(aiO,250)}
+function aiO(){let m=movesO(2);if(!m.length){if(!movesO(1))return endO();oturn=1;renderOthello();return}let best=m[0],bs=-999;for(let x of m){let flips=validO(x[0],x[1],2).length,score=flips*olvl+(x[0]===0||x[0]===7?6:0)+(x[1]===0||x[1]===7?6:0)+Math.random()*(11-olvl)*4;if(score>bs){bs=score;best=x}}putO(best[0],best[1],2);oturn=1;if(!movesO(1)&&movesO(2).length){oturn=2;renderOthello();setTimeout(aiO,250);return}if(!movesO(1)&&!movesO(2).length)return endO();renderOthello()}
+function endO(){let a=ob.flat().filter(x=>x===1).length,b=ob.flat().filter(x=>x===2).length;let r=a>b?"win":a<b?"loss":"draw";finish("othello",r,`あなた ${a} - AI ${b}`)}
+// MEMORY
+let deck,open=[],lock=false,turnM=1,scoreM=[0,0];
+function startMemory(){show("playScreen");$("gameArea").innerHTML=`<h1>🃏 神経衰弱</h1><p id="minfo"></p><div id="mboard" class="board memory"></div>`;newMemory()}
+function newMemory(){deck=["🍎","🍎","🍋","🍋","🍇","🍇","🍒","🍒","⭐","⭐","🔥","🔥","🐱","🐱","🐶","🐶"].sort(()=>Math.random()-.5).map((v,i)=>({v,i,open:false,done:false}));open=[];turnM=1;scoreM=[0,0];renderM()}
+function renderM(){let b=$("mboard");b.innerHTML="";deck.forEach((x,i)=>{let d=document.createElement("div");d.className="cell "+(x.open||x.done?"open":"");d.textContent=x.open||x.done?x.v:"?";d.onclick=()=>flipM(i);b.appendChild(d)});$("minfo").textContent=`あなた ${scoreM[0]}　AI ${scoreM[1]}　${turnM===1?"あなたの番":"AIの番"}`}
+function flipM(i){if(lock||turnM!==1||deck[i].open||deck[i].done)return;deck[i].open=true;open.push(i);renderM();if(open.length===2){lock=true;setTimeout(resolveM,500)}}
+function resolveM(){let[a,b]=open;if(deck[a].v===deck[b].v){deck[a].done=deck[b].done=true;scoreM[turnM-1]++;open=[];lock=false;if(deck.every(x=>x.done))return endM();renderM();if(turnM===2)setTimeout(aiM,450)}else{setTimeout(()=>{deck[a].open=deck[b].open=false;open=[];turnM=turnM===1?2:1;lock=false;renderM();if(turnM===2)setTimeout(aiM,500)},650)}}
+function aiM(){let closed=deck.map((x,i)=>!x.done&&!x.open?i:null).filter(x=>x!==null);if(!closed.length)return;let a=closed[Math.floor(Math.random()*closed.length)],same=closed.filter(i=>deck[i].v===deck[a].v);let b=same.length>1?same[Math.floor(Math.random()*same.length)]:closed.filter(i=>i!==a)[Math.floor(Math.random()*(closed.length-1))];deck[a].open=deck[b].open=true;open=[a,b];renderM();setTimeout(resolveM,600)}
+function endM(){let r=scoreM[0]>scoreM[1]?"win":scoreM[0]<scoreM[1]?"loss":"draw";finish("memory",r,`あなた ${scoreM[0]} - AI ${scoreM[1]}`)}
+// TIMING
+let tr=0,ts=0,needle=0,dir=1,timer;
+function startTiming(){show("playScreen");$("gameArea").innerHTML=`<h1>🎯 タイミングゲーム</h1><p>ゲージ中央のゾーンで止めろ！5ラウンド</p><div class="timing"><div class="target"></div><div id="needle" class="needle"></div></div><div class="big" id="tscore">0</div><button class="primary" id="stopBtn">STOP!</button>`;tr=0;ts=0;runTiming()}
+function runTiming(){clearInterval(timer);needle=0;dir=1;timer=setInterval(()=>{needle+=dir*1.7;if(needle>99||needle<0)dir*=-1;$("needle").style.left=needle+"%"},16);$("stopBtn").onclick=stopTiming}
+function stopTiming(){clearInterval(timer);let dist=Math.abs(needle-50),gain=Math.max(0,100-Math.round(dist*3));ts+=gain;tr++;$("tscore").textContent=ts;if(tr>=5){let ai=180+Math.floor(Math.random()*220);let r=ts>ai?"win":ts<ai?"loss":"draw";finish("timing",r,`あなた ${ts} - AI ${ai}`)}else setTimeout(runTiming,400)}
+// GOMOKU
+let gb,gt=1,glvl=5;
+function startGomoku(){show("playScreen");$("gameArea").innerHTML=`<h1>⚪ 五目並べ</h1><div class="row" style="justify-content:center">AI Lv.<select class="select" id="glvl">${Array.from({length:10},(_,i)=>`<option>${i+1}</option>`).join("")}</select></div><p id="ginfo"></p><div id="gboard" class="board"></div>`;$("glvl").onchange=e=>glvl=+e.target.value;newG()}
+function newG(){gb=Array.from({length:11},()=>Array(11).fill(0));gt=1;renderG()}
+function winG(r,c,p){for(let[dr,dc]of [[1,0],[0,1],[1,1],[1,-1]]){let n=1;for(let s of[-1,1]){let rr=r+dr*s,cc=c+dc*s;while(rr>=0&&rr<11&&cc>=0&&cc<11&&gb[rr][cc]===p){n++;rr+=dr*s;cc+=dc*s}}if(n>=5)return true}return false}
+function renderG(){let b=$("gboard");b.innerHTML="";for(let r=0;r<11;r++)for(let c=0;c<11;c++){let d=document.createElement("div");d.className="cell";d.textContent=gb[r][c]===1?"●":gb[r][c]===2?"○":"";d.onclick=()=>playerG(r,c);b.appendChild(d)}$("ginfo").textContent=gt===1?"あなたの番":"AIの番"}
+function playerG(r,c){if(gt!==1||gb[r][c])return;gb[r][c]=1;if(winG(r,c,1))return finish("gomoku","win");gt=2;renderG();setTimeout(aiG,250)}
+function aiG(){let empty=[];for(let r=0;r<11;r++)for(let c=0;c<11;c++)if(!gb[r][c])empty.push([r,c]);if(!empty.length)return finish("gomoku","draw");let best=empty[Math.floor(Math.random()*empty.length)],bs=-1;for(let x of empty){gb[x[0]][x[1]]=2;let w=winG(x[0],x[1],2);gb[x[0]][x[1]]=0;if(w){best=x;break}let s=Math.random()*glvl*10;if(s>bs){bs=s;best=x}}gb[best[0]][best[1]]=2;if(winG(best[0],best[1],2))return finish("gomoku","loss");gt=1;renderG()}
+// BATTLE
+let ships,shots,aiShots;
+function startBattle(){show("playScreen");$("gameArea").innerHTML=`<h1>🚢 海戦ゲーム</h1><p>5×5の海でAI艦隊を探せ！</p><div id="binfo"></div><div id="bboard" class="board"></div>`;ships=new Set(["0,0","0,1","2,3","3,3","4,3"]);shots=new Set();aiShots=new Set();renderB()}
+function renderB(){let b=$("bboard");b.innerHTML="";for(let r=0;r<5;r++)for(let c=0;c<5;c++){let d=document.createElement("div");d.className="cell";let k=r+","+c;d.textContent=shots.has(k)?(ships.has(k)?"💥":"•"):"?";d.onclick=()=>shootB(r,c);b.appendChild(d)}$("binfo").textContent=`命中 ${[...shots].filter(x=>ships.has(x)).length}/5`}
+function shootB(r,c){let k=r+","+c;if(shots.has(k))return;shots.add(k);if([...shots].filter(x=>ships.has(x)).length===5)return finish("battle","win");setTimeout(()=>{let choices=[];for(let r=0;r<5;r++)for(let c=0;c<5;c++)if(!aiShots.has(r+","+c))choices.push([r,c]);if(choices.length)aiShots.add(choices[Math.floor(Math.random()*choices.length)].join(","));renderB()},250);renderB()}
+// WEREWOLF
+function startWerewolf(){show("playScreen");$("gameArea").innerHTML=`<h1>🐺 人狼</h1><p>3人のAIの中に人狼が1人。会話を読んで当てろ。</p><div class="chatbox" id="wolf"></div><div class="row" style="justify-content:center">${[0,1,2].map(i=>`<button class="primary" onclick="voteW(${i})">AI${i+1}を人狼だと思う</button>`).join("")}</div>`;let wolf=Math.floor(Math.random()*3);window._wolf=wolf;let lines=[["AI1","なんかAI3が怪しくない？"],["AI2","いや、俺はAI1のほうが怪しいと思う。"],["AI3","待って、なんで俺なんだよ笑"]];$("wolf").innerHTML=lines.map(x=>`<div class="line"><b>${x[0]}</b>：${x[1]}</div>`).join("")}
+function voteW(i){let r=i===window._wolf?"win":"loss";finish("werewolf",r,`人狼はAI${window._wolf+1}だった！`)}
+// CHESS simplified demo board (piece movement is intentionally basic in this first build)
+const pieces=["♜","♞","♝","♛","♚","♝","♞","♜","♟","♟","♟","♟","♟","♟","♟","♟","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","♙","♙","♙","♙","♙","♙","♙","♙","♖","♘","♗","♕","♔","♗","♘","♖"];
+let cb,selected=null;
+function startChess(){show("playScreen");$("gameArea").innerHTML=`<h1>♟️ チェス</h1><p>まずは駒をタップして移動するシンプル版。</p><div id="cboard" class="board chess"></div>`;cb=pieces.slice();selected=null;renderC()}
+function renderC(){let b=$("cboard");b.innerHTML="";cb.forEach((p,i)=>{let d=document.createElement("div");d.className="cell";d.textContent=p;d.onclick=()=>clickC(i);b.appendChild(d)})}
+function clickC(i){if(selected===null){if(cb[i]&&"♙♖♘♗♕♔".includes(cb[i]))selected=i}else{if(i!==selected){cb[i]=cb[selected];cb[selected]="";renderC();setTimeout(()=>aiChess(),250)}selected=null}}
+function aiChess(){let from=cb.findIndex(x=>"♟♜♞♝♛♚".includes(x));let to=cb.findIndex(x=>x==="");if(from>=0&&to>=0){cb[to]=cb[from];cb[from]="";renderC()}}
+function renderStats(){$("stats").innerHTML=games.map(g=>{let s=stats[g[0]]||{win:0,loss:0,draw:0,best:0};return `<div class="card"><b>${g[1]} ${g[2]}</b><br>勝ち ${s.win}　負け ${s.loss}　引き分け ${s.draw}　BEST ${s.best||0}</div>`}).join("")}
+function startGame(id){({othello:startOthello,memory:startMemory,timing:startTiming,gomoku:startGomoku,battle:startBattle,werewolf:startWerewolf,chess:startChess}[id]||startGames)()}
+function startGames(){show("gamesScreen")}
+</script>
+</body>
+</html>
